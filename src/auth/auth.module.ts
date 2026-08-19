@@ -6,7 +6,6 @@ import "dotenv/config";
 import { PassportModule } from "@nestjs/passport";
 import { JwtStrategy } from "src/strategies/jwt.strategy";
 import { JwtAuthGuard } from "src/guards/jwt-auth.guard";
-console.log(process.env.JWT_SECRET);
 
 @Module({
   imports: [

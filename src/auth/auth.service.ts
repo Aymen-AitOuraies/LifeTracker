@@ -44,20 +44,16 @@ export class AuthService {
   }
 
   async verify(verificationDto: VerificationDto) {
-    // select the user with the verificationId
     const users = await db
       .select()
       .from(userTable)
       .where(eq(userTable.verificationId, verificationDto.verificationId));
     const user = users[0];
-    // check if it exists
     if (!user) {
       throw new NotFoundException("Verification not found");
     }
-    // check expiration
     if (new Date() > user.expiresAt)
       throw new BadRequestException("OTP has expired");
-    // set the verified email to true
     await db
       .update(userTable)
       .set({ emailVerified: true })
@@ -66,7 +62,6 @@ export class AuthService {
   }
 
   async signin(signinDto: SigninDto) {
-    // check if user exists
     const users = await db
       .select()
       .from(userTable)
@@ -87,8 +82,6 @@ export class AuthService {
         verified: false,
         verificationId: user.verificationId,
       };
-    console.log(process.env.JWT_SECRET);
-    // create the access token and refresh
     const accessToken = this.jwtService.sign(
       {
         sub: user.id,

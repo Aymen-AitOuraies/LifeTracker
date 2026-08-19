@@ -51,7 +51,7 @@ export class ScheduleController {
     );
   }
   @UseGuards(JwtAuthGuard)
-  @Put("id")
+  @Put(":id")
   replaceSchedule(
     @Req() req: AuthenticatedRequest,
     @Param("id") scheduleId: string,
@@ -64,7 +64,7 @@ export class ScheduleController {
     );
   }
   @UseGuards(JwtAuthGuard)
-  @Patch("id")
+  @Patch(":id")
   updateSchedule(
     @Req() req: AuthenticatedRequest,
     @Param("id") scheduleId: string,
@@ -77,7 +77,7 @@ export class ScheduleController {
     );
   }
   @UseGuards(JwtAuthGuard)
-  @Delete("id")
+  @Delete(":id")
   deleteSchedule(
     @Req() req: AuthenticatedRequest,
     @Param("id") scheduleId: string,
