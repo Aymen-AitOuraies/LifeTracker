@@ -16,7 +16,7 @@ import { CreateScheduleDto } from "./dto/create-schedule.dto";
 import { ReplaceScheduleDto } from "./dto/replace-schedule.dto";
 import { UpdateScheduleDto } from "./dto/update-schedule.dto";
 
-type AuthenticatedRequest = {
+export type AuthenticatedRequest = {
   user?: {
     userId: string;
   };
