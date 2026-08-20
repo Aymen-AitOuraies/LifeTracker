@@ -7,6 +7,7 @@ import {
   date,
   text,
   boolean,
+  pgEnum,
 } from "drizzle-orm/pg-core";
 
 export const userTable = pgTable("users", {
@@ -33,13 +34,24 @@ export const scheduleTable = pgTable(
   (table) => [index("schedules_user_id_idx").on(table.userId)],
 );
 
+export const taskStatuses = [
+  "pending",
+  "in_progress",
+  "completed",
+  "cancelled",
+] as const;
+
+export type TaskStatus = (typeof taskStatuses)[number];
+
+export const taskStatusEnum = pgEnum("task_status", taskStatuses);
+
 export const taskTable = pgTable("tasks", {
   id: uuid("id").primaryKey().defaultRandom(),
   scheduleId: uuid("schedule_id")
     .references(() => scheduleTable.id)
     .notNull(),
   title: varchar("title", { length: 255 }),
-  status: varchar("status", { length: 255 }),
+  status: taskStatusEnum("status").notNull().default("pending"),
   startTime: timestamp("start_time"),
   endTIme: timestamp("end_time"),
 });
