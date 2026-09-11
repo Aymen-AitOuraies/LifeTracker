@@ -1,7 +1,7 @@
 import { Injectable, NotFoundException } from "@nestjs/common";
 import { db } from "src/db";
 import { scheduleTable } from "src/db/schema";
-import { eq, and } from "drizzle-orm";
+import { eq, and, desc } from "drizzle-orm";
 import { CreateScheduleDto } from "./dto/create-schedule.dto";
 import { ReplaceScheduleDto } from "./dto/replace-schedule.dto";
 import { UpdateScheduleDto } from "./dto/update-schedule.dto";
@@ -13,6 +13,19 @@ export class ScheduleService {
       .from(scheduleTable)
       .where(eq(scheduleTable.userId, userId));
     return schedules;
+  }
+
+  async getLastSchedules(userId: string) {
+    const lastSchedules = await db.query.scheduleTable.findMany({
+      where: eq(scheduleTable.userId, userId),
+      orderBy: desc(scheduleTable.date),
+      limit: 7,
+      with: {
+        tasks: true,
+        feedback: true,
+      },
+    });
+    return lastSchedules;
   }
 
   async getScheduleById(userId: string, scheduleId: string) {

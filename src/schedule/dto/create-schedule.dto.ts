@@ -1,7 +1,7 @@
-import { IsNotEmpty, IsString } from "class-validator";
+import { IsDateString, IsNotEmpty } from "class-validator";
 
 export class CreateScheduleDto {
-  @IsString()
+  @IsDateString()
   @IsNotEmpty()
   date: string;
 }

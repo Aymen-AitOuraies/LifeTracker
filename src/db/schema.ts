@@ -1,4 +1,5 @@
 import { index } from "drizzle-orm/pg-core";
+import { relations } from "drizzle-orm";
 import {
   uuid,
   pgTable,
@@ -63,3 +64,22 @@ export const feedbackTable = pgTable("feedbacks", {
     .notNull(),
   text: text("text").notNull(),
 });
+
+export const scheduleRelations = relations(scheduleTable, ({ many }) => ({
+  tasks: many(taskTable),
+  feedback: many(feedbackTable),
+}));
+
+export const taskRelations = relations(taskTable, ({ one }) => ({
+  schedule: one(scheduleTable, {
+    fields: [taskTable.scheduleId],
+    references: [scheduleTable.id],
+  }),
+}));
+
+export const feedbackRelations = relations(feedbackTable, ({ one }) => ({
+  schedule: one(scheduleTable, {
+    fields: [feedbackTable.scheduleId],
+    references: [scheduleTable.id],
+  }),
+}));
