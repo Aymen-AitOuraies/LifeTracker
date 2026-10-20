@@ -3,9 +3,10 @@ import { AiService } from "./ai.service";
 import { AiController } from "./ai.controller";
 import { ScheduleService } from "src/schedule/schedule.service";
 import { TaskService } from "src/task/task.service";
+import { FeedbacksService } from "src/feedbacks/feedbacks.service";
 
 @Module({
   controllers: [AiController],
-  providers: [AiService, ScheduleService, TaskService],
+  providers: [AiService, ScheduleService, TaskService, FeedbacksService],
 })
 export class AiModule {}

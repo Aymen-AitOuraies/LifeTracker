@@ -1,0 +1,29 @@
+
+services:
+  db:
+    image: postgres:15-alpine
+    environment:
+      POSTGRES_USER: life_tracker
+      POSTGRES_PASSWORD: password
+      POSTGRES_DB: life_tracker
+    ports:
+      - "7676:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+  app:
+    build: .
+    ports:
+      - "3000:3000"
+    env_file:
+      - .env
+    environment:
+      DATABASE_URL: postgresql://life_tracker:password@db:5432/life_tracker
+    volumes:
+      - .:/app
+      - /app/node_modules
+    depends_on:
+      - db
+
+volumes:
+  postgres_data:

@@ -4,50 +4,27 @@ import { GoogleGenAI } from "@google/genai";
 import * as z from "zod";
 import { ScheduleService } from "src/schedule/schedule.service";
 import { TaskService } from "src/task/task.service";
+import {
+  InteractionResponse,
+  FunctionResult,
+  Schedules,
+  Feedbacks,
+} from "./types/ai.types";
+import { FeedbacksService } from "src/feedbacks/feedbacks.service";
+import { buildScheduleGenerationPrompt } from "./prompts/schedule-generation.prompt";
 
 @Injectable()
 export class AiService {
-  // private requestTimestamps: number[] = [];
-  // private readonly maxRequestsPerMinute = 4;
   constructor(
     private readonly scheduleService: ScheduleService,
     private readonly taskServide: TaskService,
+    private readonly feedbackService: FeedbacksService,
   ) {}
-  // private async waitForRateLimitSlot(): Promise<void> {
-  //   const now = Date.now();
-  //   this.requestTimestamps = this.requestTimestamps.filter(
-  //     (t) => now - t < 60_000,
-  //   );
-
-  //   if (this.requestTimestamps.length >= this.maxRequestsPerMinute) {
-  //     const oldest = this.requestTimestamps[0];
-  //     const waitMs = 60_000 - (now - oldest) + 100;
-  //     console.warn(`Rate limit slot full. Waiting ${waitMs}ms...`);
-  //     await new Promise((resolve) => setTimeout(resolve, waitMs));
-  //     return this.waitForRateLimitSlot();
-  //   }
-
-  //   this.requestTimestamps.push(now);
-  // }
 
   async generateAiSchedule(userId: string, createAiDto: CreateAiDto) {
     const ai = new GoogleGenAI({
       apiKey: process.env.GEMINI_API,
     });
-
-    type InteractionResponse = Awaited<
-      ReturnType<typeof ai.interactions.create>
-    >;
-
-    type FunctionResult = {
-      type: "function_result";
-      name: string;
-      call_id: string;
-      result: Array<{
-        type: "text";
-        text: string;
-      }>;
-    };
 
     const scheduleJsonSchema = {
       type: "object",
@@ -98,61 +75,28 @@ export class AiService {
       },
     } as const;
 
-    let input: string | FunctionResult[] = `
-Create a schedule based on the user's request:
+    const feedbacksTool = {
+      type: "function",
+      name: "findAllUserFeedbacks",
+      description: "get all user feedbacks",
+      parameters: {
+        type: "object",
+        properties: {},
+      },
+    } as const;
 
-${createAiDto.prompt}
+    let input: string | FunctionResult[] = buildScheduleGenerationPrompt(
+      createAiDto.prompt,
+    );
 
-First, use getLastSchedules to retrieve the user's recent schedules with the tasks and feedbacks.
-
-Previous schedules are from previous days. Use them only as context to
-understand the user's habits, routines, ongoing activities, preferred
-times, and typical task durations.
-
-When a task or activity from the user's request also appeared in previous
-schedules, use its previous duration as a baseline if the user did not
-specify a duration.
-
-IMPORTANT RULES:
-
-1. Respect all times explicitly specified by the user.
-   For example, if the user says "gym from 4 to 5pm", the task MUST be
-   scheduled from 16:00 to 17:00.
-
-2. Respect all durations explicitly specified by the user.
-   For example, if the user says "a 1 hour tutorial", the task MUST last
-   exactly 1 hour.
-
-3. If the user specifies both a start and end time, do not change them.
-
-4. If the user specifies a duration but not a time, choose an appropriate
-   available time while keeping the exact duration.
-
-5. If the user does not specify a duration, use previous schedules to
-   estimate a reasonable duration for that activity.
-
-6. Previous task times belong to previous days. Do NOT copy their exact
-   times into today's schedule unless the user explicitly requests that.
-
-7. Previous task durations can be used as a baseline for today's tasks.
-
-8. Do not arbitrarily increase or decrease a task's duration when there
-   is historical information available.
-
-9. Create a NEW schedule for today. Do not simply copy a previous schedule.
-
-10. Make sure tasks do not overlap with each other.
-
-Return all tasks with startTime and endTime in HH:mm format.
-`;
     let previousId: string | null = null;
     let interaction: InteractionResponse;
+
     while (true) {
-      // await this.waitForRateLimitSlot();
       interaction = await ai.interactions.create({
-        model: "gemini-3.6-flash",
+        model: "gemini-3.5-flash-lite",
         input,
-        tools: [tasksTool],
+        tools: [tasksTool, feedbacksTool],
         response_format: {
           type: "text",
           mime_type: "application/json",
@@ -164,10 +108,23 @@ Return all tasks with startTime and endTime in HH:mm format.
             }
           : {}),
       });
+
       const functionResults: FunctionResult[] = [];
       for (const step of interaction.steps) {
         if (step.type === "function_call") {
-          const result = await this.scheduleService.getLastSchedules(userId);
+          let result: Schedules | Feedbacks;
+          switch (step.name) {
+            case "getLastSchedules":
+              result = await this.scheduleService.getLastSchedules(userId);
+              break;
+
+            case "findAllUserFeedbacks":
+              result = await this.feedbackService.findAllUserFeedbacks(userId);
+              break;
+
+            default:
+              throw new Error(`Unknown tool: ${step.name}`);
+          }
           functionResults.push({
             type: "function_result",
             name: step.name,
@@ -181,11 +138,13 @@ Return all tasks with startTime and endTime in HH:mm format.
 
       previousId = interaction.id;
     }
+
     const AiSchedule = taskSchema.parse(JSON.parse(interaction.output_text!));
     const schedule = await this.scheduleService.addSchedule(
       userId,
       createAiDto,
     );
+
     for (const task of AiSchedule.tasks) {
       await this.taskServide.createTask(userId, schedule.id, {
         title: task.title,
@@ -193,6 +152,9 @@ Return all tasks with startTime and endTime in HH:mm format.
         endTime: `${schedule.date}T${task.endTime}:00`,
       });
     }
-    return AiSchedule;
+    return {
+      scheduleId: schedule.id,
+      tasks: AiSchedule,
+    };
   }
 }
