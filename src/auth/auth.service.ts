@@ -38,9 +38,13 @@ export class AuthService {
       otpHash: await bcrypt.hash(otp, 10),
       expiresAt: new Date(Date.now() + 5 * 60 * 1000),
     };
-    await db.insert(userTable).values(user);
-    const users = await db.select().from(userTable);
-    return users;
+    const [newUser] = await db.insert(userTable).values(user).returning({
+      id: userTable.id,
+      username: userTable.username,
+      email: userTable.email,
+    });
+
+    return newUser;
   }
 
   async verify(verificationDto: VerificationDto) {
